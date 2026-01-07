@@ -35,49 +35,6 @@ Action Taken: File Isolated
     server.quit()
 
 # ================= DEEPFAKE DETECTION =================
-def detect_deepfake(video_path):
-    cap = cv2.VideoCapture(video_path)
-    diffs = []
-    prev = None
-    count = 0
-
-    while cap.isOpened() and count < 40:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
-
-        if prev is not None:
-            diff = cv2.absdiff(prev, gray)
-            diffs.append(np.mean(diff))
-
-        prev = gray
-        count += 1
-
-    cap.release()
-
-    if len(diffs) < 10:
-        return "UNKNOWN", 0
-
-    X = np.array(diffs).reshape(-1, 1)
-
-    model = IsolationForest(
-        n_estimators=100,
-        contamination=0.15,
-        random_state=42
-    )
-    model.fit(X)
-
-    preds = model.predict(X)
-    anomaly_ratio = (preds == -1).sum() / len(preds)
-    score = round(anomaly_ratio * 100, 2)
-
-    if score > 45:
-        return "FAKE", score
-    else:
-        return "REAL", score
 
 # ================= STREAMLIT DASHBOARD =================
 st.set_page_config(page_title="SOC Deepfake Detection", layout="centered")
@@ -104,7 +61,54 @@ if uploaded_video:
         st.error(f"🚨 FAKE Detected | Risk Score: {score}%")
         st.warning("SOC Action: Alert Sent & File Isolated")
 
-    elif result == "REAL":
+    elif result == "REAL":def detect_deepfake(video_path):
+    cap = cv2.VideoCapture(video_path)
+
+    values = []
+    diffs = []
+    prev = None
+    count = 0
+
+    while cap.isOpened() and count < 40:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        values.append(np.mean(gray))
+
+        if prev is not None:
+            diff = cv2.absdiff(prev, gray)
+            diffs.append(np.mean(diff))
+
+        prev = gray
+        count += 1
+
+    cap.release()
+
+    if len(diffs) < 10:
+        return "UNKNOWN", 0
+
+    # ===== ML PART =====
+    X = np.array(diffs).reshape(-1, 1)
+    model = IsolationForest(contamination=0.25, random_state=42)
+    model.fit(X)
+    preds = model.predict(X)
+
+    ml_risk = (preds == -1).sum() / len(preds) * 100
+
+    # ===== AI AGENT LOGIC (KEY FIX 🔥) =====
+    variance_score = np.std(values) * 2
+    combined_risk = ml_risk + variance_score
+
+    combined_risk = round(min(combined_risk, 100), 2)
+
+    if combined_risk > 40:
+        return "FAKE", combined_risk
+    else:
+        return "REAL", combined_risk
         st.success(f"✅ REAL Video | Risk Score: {score}%")
 
     else:
@@ -135,4 +139,5 @@ if uploaded_video:
         "Status": result,
         "Risk Score": f"{score}%",
         "Action": "Isolated" if result == "FAKE" else "Allowed"
+
     })
