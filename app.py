@@ -120,7 +120,8 @@ if uploaded_video:
         st.error(f"🚨 FAKE Detected | Risk Score: {score}%")
         st.warning("SOC Action: Alert Sent & File Isolated")
 
-    elif result == "REAL":def detect_deepfake(video_path):
+    elif result == "REAL":
+        def detect_deepfake(video_path):
     cap = cv2.VideoCapture(video_path)
 
     values = []
@@ -200,4 +201,5 @@ if uploaded_video:
         "Action": "Isolated" if result == "FAKE" else "Allowed"
 
     })
+
 
