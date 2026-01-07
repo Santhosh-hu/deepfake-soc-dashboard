@@ -35,7 +35,66 @@ Action Taken: File Isolated
     server.quit()
 
 # ================= DEEPFAKE DETECTION =================
+# ===== imports =====
 
+# ===== play_alert_sound() =====
+
+# ===== send_email_alert() =====
+
+# ===== detect_deepfake() =====   ✅ FUNCTION HERE
+def detect_deepfake(video_path):
+    cap = cv2.VideoCapture(video_path)
+    values = []
+    diffs = []
+    prev = None
+    count = 0
+
+    while cap.isOpened() and count < 40:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        values.append(np.mean(gray))
+
+        if prev is not None:
+            diff = cv2.absdiff(prev, gray)
+            diffs.append(np.mean(diff))
+
+        prev = gray
+        count += 1
+
+    cap.release()
+
+    if len(diffs) < 10:
+        return "UNKNOWN", 0
+
+    X = np.array(diffs).reshape(-1, 1)
+    model = IsolationForest(contamination=0.25, random_state=42)
+    model.fit(X)
+    preds = model.predict(X)
+
+    ml_risk = (preds == -1).sum() / len(preds) * 100
+    variance_score = np.std(values) * 2
+    combined_risk = round(min(ml_risk + variance_score, 100), 2)
+
+    if combined_risk > 40:
+        return "FAKE", combined_risk
+    else:
+        return "REAL", combined_risk
+
+
+# ===== STREAMLIT UI BELOW =====
+uploaded_video = st.file_uploader("Upload Video", type=["mp4"])
+
+if uploaded_video:
+    ...
+    if result == "FAKE":
+        ...
+    elif result == "REAL":
+        ...
 # ================= STREAMLIT DASHBOARD =================
 st.set_page_config(page_title="SOC Deepfake Detection", layout="centered")
 
@@ -141,3 +200,4 @@ if uploaded_video:
         "Action": "Isolated" if result == "FAKE" else "Allowed"
 
     })
+
