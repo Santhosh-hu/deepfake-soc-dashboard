@@ -87,5 +87,6 @@ if uploaded_file:
         st.metric("Risk Score", f"{risk}%")
 
 st.markdown("---")
-st.caption("Deepfake Detection | College Demo Project")
+st.caption("Deepfake Detection | Project")
+
 
