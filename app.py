@@ -22,14 +22,15 @@ def play_alert_sound():
 
 # ================= EMAIL ALERT =================
 import requests
+import streamlit as st
 
 def send_email_alert(score):
-    url = "https://formspree.io/f/mvzgelpd"  # <-- replace with YOUR endpoint
+    url = "https://formspree.io/f/mvzgelpd"  # 🔁 un Formspree endpoint
 
     data = {
+        "email": "santhoshkuppyusamy19@gmail.com",
         "subject": "🚨 Deepfake Alert",
-        "message": f"Fake Video Detected\nRisk Score: {score}%",
-        "email": "santhoshkuppyusamy19@gmail.com"
+        "message": f"Fake Video Detected\nRisk Score: {score}%"
     }
 
     r = requests.post(url, data=data)
@@ -38,7 +39,6 @@ def send_email_alert(score):
         st.success("📧 Email alert sent successfully")
     else:
         st.error("❌ Email failed")
-
 # ================= DEEPFAKE DETECTION =================
 def detect_deepfake(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -143,4 +143,5 @@ if uploaded_video:
         "Risk Score": f"{score}%",
         "Action": "Isolated" if result == "FAKE" else "Allowed"
     })
+
 
