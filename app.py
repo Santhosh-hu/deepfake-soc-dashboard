@@ -1,147 +1,90 @@
 import streamlit as st
 import cv2
 import numpy as np
-from sklearn.ensemble import IsolationForest
-import matplotlib.pyplot as plt
-import smtplib
-from email.message import EmailMessage
+import requests
+import tempfile
 
-# ================= PAGE CONFIG =================
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="AI Deepfake SOC Dashboard",
+    page_title="Deepfake Detection System",
     layout="centered"
 )
 
-# ================= ALERT SOUND =================
-def play_alert_sound():
-    st.markdown("""
-    <audio autoplay>
-        <source src="https://www.soundjay.com/buttons/sounds/beep-07.mp3" type="audio/mpeg">
-    </audio>
-    """, unsafe_allow_html=True)
+st.title("🎭 Deepfake Detection Dashboard")
+st.write("AI-based Video Analysis with Email Alert")
 
-# ================= EMAIL ALERT =================
-import requests
-import streamlit as st
-
+# ---------------- EMAIL ALERT (NO SMTP) ----------------
 def send_email_alert(score):
-    url = "https://formspree.io/f/mvzgelpd"  # 🔁 un Formspree endpoint
+    FORM_ENDPOINT = "https://formspree.io/f/mvzgelpd"  
+    # 🔁 UN FORMSpree endpoint inga paste pannu
 
     data = {
         "email": "santhoshkuppyusamy19@gmail.com",
         "subject": "🚨 Deepfake Alert",
-        "message": f"Fake Video Detected\nRisk Score: {score}%"
+        "message": f"Fake video detected!\nRisk Score: {score}%"
     }
 
-    r = requests.post(url, data=data)
+    try:
+        r = requests.post(FORM_ENDPOINT, data=data)
+        if r.status_code == 200:
+            st.success("📧 Email alert sent successfully")
+        else:
+            st.error("❌ Email sending failed")
+    except Exception as e:
+        st.error(e)
 
-    if r.status_code == 200:
-        st.success("📧 Email alert sent successfully")
-    else:
-        st.error("❌ Email failed")
-# ================= DEEPFAKE DETECTION =================
+# ---------------- DETECTION LOGIC (DEMO SAFE) ----------------
 def detect_deepfake(video_path):
     cap = cv2.VideoCapture(video_path)
-
-    values = []
-    diffs = []
-    prev = None
+    blur_scores = []
     count = 0
 
-    while cap.isOpened() and count < 40:
+    while True:
         ret, frame = cap.read()
         if not ret:
             break
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        blur = cv2.Laplacian(gray, cv2.CV_64F).var()
+        blur_scores.append(blur)
 
-        values.append(np.mean(gray))
-
-        if prev is not None:
-            diff = cv2.absdiff(prev, gray)
-            diffs.append(np.mean(diff))
-
-        prev = gray
         count += 1
+        if count > 25:
+            break
 
     cap.release()
 
-    if len(diffs) < 10:
-        return "UNKNOWN", 0
+    avg_blur = np.mean(blur_scores)
 
-    X = np.array(diffs).reshape(-1, 1)
-
-    model = IsolationForest(
-        contamination=0.25,
-        random_state=42
-    )
-    model.fit(X)
-
-    preds = model.predict(X)
-    ml_risk = (preds == -1).sum() / len(preds) * 100
-
-    variance_score = np.std(values) * 2
-    final_risk = round(min(ml_risk + variance_score, 100), 2)
-
-    if final_risk > 40:
-        return "FAKE", final_risk
+    # Demo logic
+    if avg_blur < 90:
+        return "FAKE", 75
     else:
-        return "REAL", final_risk
+        return "REAL", 20
 
-# ================= STREAMLIT UI =================
-st.title("🤖 AI Agent Based Deepfake Detection (SOC Dashboard)")
-st.write("Upload a video to analyze")
+# ---------------- FILE UPLOAD ----------------
+uploaded_file = st.file_uploader(
+    "📤 Upload a video file",
+    type=["mp4", "avi", "mov"]
+)
 
-uploaded_video = st.file_uploader("Upload Video", type=["mp4"])
+if uploaded_file:
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(uploaded_file.read())
+        video_path = tmp.name
 
-if uploaded_video:
-    with open("temp.mp4", "wb") as f:
-        f.write(uploaded_video.read())
+    with st.spinner("🔍 Analyzing video..."):
+        result, risk = detect_deepfake(video_path)
 
-    st.video("temp.mp4")
-
-    with st.spinner("AI Agent analyzing video..."):
-        result, score = detect_deepfake("temp.mp4")
-
-    st.subheader("🔍 Detection Result")
+    st.subheader("🧠 Detection Result")
 
     if result == "FAKE":
-        play_alert_sound()
-        send_email_alert(score)
-        st.error(f"🚨 FAKE Detected | Risk Score: {score}%")
-        st.warning("SOC Action: Alert Sent & File Isolated")
-
-    elif result == "REAL":
-        st.success(f"✅ REAL Video | Risk Score: {score}%")
-
+        st.error("⚠ FAKE VIDEO DETECTED")
+        st.metric("Risk Score", f"{risk}%")
+        send_email_alert(risk)
     else:
-        st.info("⚠ Not enough data to analyze")
+        st.success("✅ REAL VIDEO")
+        st.metric("Risk Score", f"{risk}%")
 
-    # ===== Risk Meter =====
-    st.subheader("📊 Risk Meter")
-    st.progress(min(int(score), 100))
-
-    if score < 30:
-        st.success("Low Risk")
-    elif score < 50:
-        st.warning("Medium Risk")
-    else:
-        st.error("High Risk")
-
-    # ===== Graph =====
-    st.subheader("📈 Risk Distribution")
-    fig, ax = plt.subplots()
-    ax.bar(["Normal", "Anomaly"], [100 - score, score])
-    st.pyplot(fig)
-
-    # ===== Incident Log =====
-    st.subheader("🧾 Incident Log")
-    st.write({
-        "File": uploaded_video.name,
-        "Status": result,
-        "Risk Score": f"{score}%",
-        "Action": "Isolated" if result == "FAKE" else "Allowed"
-    })
-
-
+st.markdown("---")
+st.caption("Deepfake Detection | College Demo Project")
