@@ -21,30 +21,23 @@ def play_alert_sound():
     """, unsafe_allow_html=True)
 
 # ================= EMAIL ALERT =================
+import requests
+
 def send_email_alert(score):
-    try:
-        msg = EmailMessage()
-        msg.set_content(f"""
-ALERT: Deepfake Detected
+    url = "https://formspree.io/f/mvzgelpd"  # <-- replace with YOUR endpoint
 
-Risk Score: {score}%
-Action Taken: File Isolated
-""")
+    data = {
+        "subject": "🚨 Deepfake Alert",
+        "message": f"Fake Video Detected\nRisk Score: {score}%",
+        "email": "santhoshkuppyusamy19@gmail.com"
+    }
 
-        msg["Subject"] = "🚨 SOC ALERT: Deepfake Detected"
-        msg["From"] = st.secrets["EMAIL_USER"]
-        msg["To"] = st.secrets["ALERT_TO"]
+    r = requests.post(url, data=data)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(
-            st.secrets["EMAIL_USER"],
-            st.secrets["EMAIL_PASS"]
-        )
-        server.send_message(msg)
-        server.quit()
-    except Exception as e:
-        st.warning("Email alert failed (demo safe mode)")
+    if r.status_code == 200:
+        st.success("📧 Email alert sent successfully")
+    else:
+        st.error("❌ Email failed")
 
 # ================= DEEPFAKE DETECTION =================
 def detect_deepfake(video_path):
@@ -150,3 +143,4 @@ if uploaded_video:
         "Risk Score": f"{score}%",
         "Action": "Isolated" if result == "FAKE" else "Allowed"
     })
+
