@@ -88,3 +88,4 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("Deepfake Detection | College Demo Project")
+
